@@ -1,0 +1,300 @@
+---
+title: "Analysis of Restaurant Tips Dataset"
+author: "Ozan Tivriz"
+date: "2025-11-01"
+output: html_document
+---
+
+This is an analysis of a restaurant and its customers, aimed at understanding 
+the relationship between tips, group sizes, and days.
+
+## Importing Data
+
+First, we load the libraries that we will use. Tidyverse is
+general analysis package, conflicted helps us escape conflictions and
+scales for readable graphic scales. After that we import the data.
+```{r, echo=FALSE, message=FALSE, warning=FALSE, results='hide'}
+knitr::opts_knit$set(root.dir = "C:/Users/Ozan Tivriz/Desktop/data")
+knitr::opts_chunk$set(echo = TRUE)
+Sys.setlocale("LC_TIME", "English_United States") 
+```
+
+```{r importing data, message=FALSE, warning=FALSE}
+library(tidyverse)
+tips <- read.csv("restaurant_tips/tip.csv")
+```
+
+## Cleaning Data
+
+When we look at the day column in the data, there is only 4 inputs.
+```{r}
+table(tips$day)
+```
+
+We assume that the restaurant is only open for four days a week and rename the 
+days for a cleaner look. A new data frame is created to avoid affecting the
+original dataset.
+```{r new df, message=FALSE, warning=FALSE}
+tips_v2 <- tips %>% 
+  mutate(day = recode(day, 
+                       "Fri" = "Friday",
+                       "Sat" = "Saturday",
+                       "Sun" = "Sunday",
+                       "Thur" = "Thursday"))
+```
+
+We also create a vector to order the days and attach this factor to our data.
+```{r factor new df, message=FALSE, warning=FALSE}
+days <- c("Thursday","Friday","Saturday","Sunday")
+tips_v2$day <- factor(tips_v2$day, levels = days)
+```
+
+There is also a sex column and a size column, which indicates how many people
+are dining together.
+To analyze tipping behavior by gender, we first need to create a new data frame
+containing only solo diners.
+
+However, there are only four people who dined alone, so any analysis based on 
+this data would be biased. Therefore, we decided not to include gender-specific
+analysis.
+```{r}
+table(tips_v2$size)
+```
+
+## Analyze
+
+A new data frame is created to analyze the total bill. Many similar data frames
+will be created throughout this analysis, but for readability, we will not show
+every step to keep the report concise.
+```{r total bill med mean df, message=FALSE, warning=FALSE}
+mean_total_bill <- tips_v2 %>%
+  group_by(size) %>%
+  summarise(
+    mean_total_bill = mean(total_bill),
+    median_total_bill = median(total_bill)
+  )
+```
+
+The bar chart illustrates how the average and median total bill change 
+depending on the group size.
+```{r total bill med mean chart, echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(mean_total_bill, aes(x=size, y=mean_total_bill)) +
+  geom_bar(stat = "identity",fill = "#86CD82", alpha = 0.7) +
+  geom_point(aes(y=median_total_bill), size = 2, color = "red") +
+  geom_text(aes(y=median_total_bill, label = round(median_total_bill,1)),
+            vjust = -0.9, color = "red") +
+  labs(title = "Average and Median Total Bill by Group Size",
+       x = "Group Size",
+       y = "Total Bill") +
+  scale_x_continuous(breaks = 1:6) + 
+  theme_minimal()
+
+```
+
+```{r tips med mean df, message=FALSE,echo=FALSE,warning=FALSE}
+mean_tips <- tips_v2 %>% 
+  group_by(size) %>% 
+  summarise(
+    mean_tip=mean(tip),
+    median_tip=median(tip)
+  )
+
+```
+
+The bar chart illustrates how the average and median tips change 
+depending on the group size.
+```{r, message=FALSE, echo=FALSE, warning=FALSE}
+ggplot(mean_tips, aes(x= size, y= mean_tip)) +
+  geom_bar(stat = "identity",fill="#86CD82", alpha = 0.7) +
+  geom_point(aes(y=median_tip), size = 2, color ="red") +
+  geom_text(aes(y=median_tip, label = round(median_tip,1)),
+            vjust = -0.9, color = "red") +
+  labs(title = "Average and Median Tips by Group Size",
+       x = "Group Size",
+       y= "Tip Amount",
+       fill = "Group Size") +
+  scale_x_continuous(breaks = 1:6) +
+  theme_minimal()
+```
+
+We also calculate and visualize the data based on the tip rate.
+```{r tip rate df, echo=FALSE, warning=FALSE, message=FALSE, results='hide'}
+tips_v2 <- tips_v2 %>% 
+  mutate(tip_rate = tip / total_bill)
+
+tip_rate <- tips_v2 %>% 
+  group_by(size) %>% 
+  summarise(
+    mean_tip_rate = mean(tip_rate),
+    median_tip_rate = median(tip_rate)
+  )
+
+```
+```{r tip rate bar-chart, message=FALSE,echo=FALSE,warning=FALSE}
+ggplot(tip_rate, aes(x= size, y = mean_tip_rate)) +
+  geom_bar(stat = "identity",fill = "#86CD82", alpha = 0.7) +
+  geom_point(aes(y = median_tip_rate), size = 2, color = "red") +
+  geom_text(aes(y = median_tip_rate, label = round(median_tip_rate, 3)),
+            vjust = -1.6, color = "red") +
+  labs(title = "Average and Median Tip Rate by Group Size",
+       x = "Group Size",
+       y= "Tip Rate",
+       fill = "Group Size") +
+  scale_x_continuous(breaks = 1:6) +
+  theme_minimal()
+```
+
+We first visualize the average per-person bill for each group size.
+```{r per person df and med mean, warning=FALSE,echo=FALSE,message=FALSE}
+tips_v2 <- tips_v2 %>% 
+  mutate(per_person_bill = total_bill/size)
+
+mean_person_bill <- tips_v2 %>% 
+  group_by(size) %>% 
+  summarise(mean_per_person = mean(per_person_bill))
+```
+```{r per person line graph, echo=FALSE,message=FALSE,warning=FALSE}
+ggplot(mean_person_bill) +
+  geom_line(aes(x=size, y=mean_per_person), size = 0.7) +
+  labs(title = "Per Person Bill / Group Size",
+       x = "Group Size",
+       y= "Average Per Person Bill") +
+  scale_x_continuous(breaks = 1:6) +
+  ylim(0,NA) +
+  theme_minimal()
+```
+
+Next, we examine the individual per-person bills, showing their distribution
+and a linear trend line to capture the overall relationship.
+```{r per person trend line graph, echo=FALSE,warning=FALSE,message=FALSE}
+ggplot(tips_v2, aes(x= size, y= per_person_bill)) +
+  geom_jitter(width = 0.2, alpha = 0.5) +
+  geom_smooth(method = "lm", color = "red") +
+  scale_x_continuous(breaks = 1:6) +
+  ylim(0,NA) +
+  labs(title = "Per Person Bill vs Group Size",
+       x = "Group Size",
+       y = "Per Person Bill")+
+  theme_minimal()
+```
+
+The correlation between group size and per-person bill is -0.175, which
+indicates a weak negative relationship. This suggests that, on average, as
+the group size increases, the amount each person pays slightly decreases.
+```{r correlation per person, echo=FALSE, warning=FALSE}
+cor(tips_v2$size, tips_v2$per_person_bill)
+```
+
+The correlation between group size and tip amount is 0.489, indicating a
+moderate positive relationship. This suggests that larger groups tend to
+leave higher tips in absolute terms.
+```{r correlation tip, echo=FALSE,warning=FALSE}
+cor(tips_v2$size, tips_v2$tip)
+```
+
+With a correlation of -0.143, the tip rate slightly decreases as group size 
+increases, showing a very weak negative relationship.
+```{r correlation tip rate, echo=FALSE, warning=FALSE}
+cor(tips_v2$size, tips_v2$tip_rate)
+```
+
+To check for differences between days, we calculate the average and median tips for each day.
+```{r tips by day df, echo=FALSE,warning=FALSE,message=FALSE}
+
+mean_tips_day <- tips_v2 %>% 
+  group_by(day) %>% 
+  summarise(
+    mean_tip=mean(tip),
+    median_tip=median(tip)
+  )
+
+```
+```{r tips by day bar-chart, echo=FALSE,message=FALSE,warning=FALSE}
+ggplot(mean_tips_day, aes(x= day, y= mean_tip, fill=day)) +
+  geom_bar(stat = "identity", alpha = 0.7) +
+  geom_point(aes(y=median_tip), size = 2, color ="red") +
+  geom_text(aes(y=median_tip, label = round(median_tip,1)),
+            vjust = -0.9, color = "red") +
+  labs(title = "Average and Median Tips by Day",
+       x = "Day of Week",
+       y= "Tip Amount",
+       fill = "Days") +
+  theme_minimal()
+```
+
+Looking at this graph, we can see that customer groups of more than two people
+are more likely to visit the restaurant on weekends.
+```{r group sizes compared by day, echo=FALSE,warning=FALSE,message=FALSE}
+ggplot(tips_v2, aes(x = size, fill = day)) +
+  geom_bar() +
+  facet_wrap(~day,  strip.position = "bottom") +
+  theme_minimal() +
+  theme(
+    strip.placement = "outside",
+    axis.text.x = element_text(size = 10),
+    strip.background = element_blank()
+  ) +
+  labs(
+    title = "Group Sizes Compared by Day",
+    x = "Group Size",
+    y = "Count"
+  )
+```
+
+Here we compare customers by smokers and non-smokers.
+```{r smoker df, echo=FALSE,warning=FALSE,message=FALSE}
+tip_rate_smoker <- tips_v2 %>% 
+  group_by(smoker) %>% 
+  summarise(
+    mean_tip_rate = mean(tip_rate),
+    median_tip_rate = median(tip_rate)
+  )
+```
+```{r smoker med mean, echo=FALSE,warning=FALSE,message=FALSE}
+ggplot(tip_rate_smoker, aes(x=smoker , y = mean_tip_rate)) +
+  geom_bar(stat = "identity",fill = "#86CD82", alpha = 0.7) +
+  geom_point(aes(y = median_tip_rate), size = 2, color = "red") +
+  geom_text(aes(y = median_tip_rate, label = round(median_tip_rate, 3)),
+            vjust = -0.6, color = "red") +
+  labs(title = "Average and Median Tip Rate by Smokers",
+       x = "Smoker",
+       y= "Tip Rate",
+       fill = "Smoker") +
+  ylim(0,0.2)+
+  theme_minimal()
+```
+
+Smokers compared by day.
+
+```{r smokers compared by day, echo=FALSE,warning=FALSE,message=FALSE}
+ggplot(tips_v2, aes(x = smoker, fill = day)) +
+  geom_bar() +
+  facet_wrap(~day,  strip.position = "bottom") +
+  theme_minimal() +
+  theme(
+    strip.placement = "outside",
+    axis.text.x = element_text(size = 10),
+    strip.background = element_blank()
+  ) +
+  labs(
+    title = "Smokers Compared by Day",
+    x = "Smokers",
+    y = "Count"
+  )
+
+```
+
+## Conclusion
+
+\* No strong correlations were observed between group size and total bill 
+per person.
+
+\* As the group size increases, the total tip amount tends to increase; however,
+the tip rate slightly decreases, indicating that larger groups leave higher tips
+in absolute terms but slightly lower percentages of their total bill.
+
+\* Groups larger than two people are more likely to visit the restaurant on 
+weekends.
+
+\* Additionally, tip rates do not appear to be related to customers’ smoking
+status.
